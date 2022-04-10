@@ -86,8 +86,12 @@ def write_format_data(data_path, out_path):
     except FileExistsError:
         pass
     new_data = {}
-    spc = spacy.load('en')
+    spc = spacy.load('en_core_web_sm')
     summe_vid, summe_text, tvsum_vid, tvsum_text = load(data_path)
+    # print(f"summe vid: {summe_vid}")
+    # print(f"summe text: {summe_text}")
+    # print(f"tvsum vid: {tvsum_vid}")
+    # print(f"tvsum text: {tvsum_text}")
     idx = 0
     split = {'train': [], 'test': []}
     for i in summe_text.keys():
@@ -119,12 +123,17 @@ def write_format_data(data_path, out_path):
         'videos': new_data,
         'splits': split
     }
+    # print("new data: ", new_data)
     for i in new_data.keys():
+        # print(f"new_data get {i}, summe_vid keys are {summe_vid.keys()}, tvsum_vid keys are {tvsum_vid.keys()}")
         with open(os.path.join(out_path, str(i) + '.pkl'), 'wb') as f:
-            if i in summe_vid.keys():
-                pickle.dump(summe_vid[i], f)
-            elif i in tvsum_vid.keys():
-                pickle.dump(tvsum_vid[i], f)
+            for j in new_data[i].keys():
+                if j in summe_vid.keys():
+                    print(f"summe_vid[j]: {summe_vid[j]}")
+                    pickle.dump(summe_vid[j], f)
+                elif j in tvsum_vid.keys():
+                    print(f"tvsum_vid[i]: {tvsum_vid[j]}")
+                    pickle.dump(tvsum_vid[j], f)
     with open(os.path.join(out_path, 'info.json'), 'w') as f:
         json.dump(new_data, f, indent=4)
 
@@ -134,7 +143,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     # input json
-    parser.add_argument('--data_path', default='G:/dataset',
+    parser.add_argument('--data_path', default='../datasets',
                         help='path of tvsum and summe dataset.')
     parser.add_argument('--out_path', default='summary_data',
                         help='path of output path.')
