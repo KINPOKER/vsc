@@ -20,7 +20,9 @@ class VideoDataset(Dataset):
         self.mode = mode  # to load train/val/test data
 
         # load the json file which contains information about the dataset
+        # 默认为 out_path/caption.json
         self.captions = json.load(open(opt["caption_json"]))
+        # 默认为 out_path/info.json
         info = json.load(open(opt["info_json"]))
         self.ix_to_word = info['ix_to_word']
         self.word_to_ix = info['word_to_ix']
@@ -84,7 +86,9 @@ class SummaryDataset(Dataset):
         self.mode = mode  # to load train/val/test data
 
         # load the json file which contains information about the dataset
+        # 默认为 out_path/info.json
         info = json.load(open(args["info_json"]))
+        # 默认为 summary_data/info.json
         vid = json.load(open(args["vid_json"]))
         final_captions = {}
         for i in vid['videos'].keys():
@@ -174,7 +178,7 @@ if __name__ == '__main__':
     param = {}
     import yaml
     with open('vsc_exp_0.yaml', 'r') as f:
-        params = yaml.load(f)
+        params = yaml.full_load(f)
     param["info_json"] = 'out_path/info.json'
     param["vid_json"] = 'summary_data/info.json'
     param["max_len"] = 15

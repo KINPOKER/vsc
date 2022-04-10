@@ -191,11 +191,18 @@ def train(loader, args, vocab, model, optimizer, lr_scheduler, config):
 
 def main(args):
     if args['mode'] == 'pretrain':
+        # 默认为 vsc_exp_0.yaml
         with open(args['conf'], 'r') as f:
-            params = yaml.load(f)
+            params = yaml.full_load(f)
+        # 加载数据集
         dataset = VideoDataset(args, 'train')
         dataloader = DataLoader(dataset, batch_size=args["batch_size"], shuffle=True)
+
+        # 自定义 词嵌入层
+        # 假定字典中只有 dataset.get_vocab_size() 个词，且词向量维度为 params['word_dim']，会把所有输入的所有词元素映射为一个词向量
         emb = torch.nn.Embedding(dataset.get_vocab_size(), params['word_dim'])
+        # 生成语义模块
+        # 利用 LSTM 网络处理词向量从而获得句子向量
         model = CaptionGenerationModule(
             vocab_size=dataset.get_vocab_size(),
             max_len=params['max_sen'],
@@ -208,7 +215,10 @@ def main(args):
             rnn_dropout_p=params['cap']['rnn_dropout'],
             device=args['device'])
         model.to(device=args['device'])
+        # 语言评价模型
         crit = utils.LanguageModelCriterion()
+
+        # adam 优化器
         optimizer = optim.Adam(
             model.parameters(),
             lr=args["learning_rate"],
@@ -217,11 +227,13 @@ def main(args):
             optimizer,
             step_size=args["learning_rate_decay_every"],
             gamma=args["learning_rate_decay_rate"])
+
+        # 开始预训练
         pretrain(dataloader, model, crit, optimizer, lr_scheduler, args)
 
     elif args['mode'] == 'train':
         with open(args['conf'], 'r') as f:
-            params = yaml.load(f)
+            params = yaml.full_load(f)
         dataset = SummaryDataset(args, 'train', params)
         dataloader = DataLoader(dataset, batch_size=args["batch_size"], shuffle=True)
         model = VSCModel(
@@ -284,122 +296,47 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '--input_json',
-        type=str,
-        default='G:/dataset/msvd/all_info.json',
-        help='path to the json file containing msvd video info')
-    parser.add_argument(
-        '--vid_json',
-        type=str,
-        default='summary_data/info.json',
-        help='path to the json file containing msvd video info')
-    parser.add_argument(
-        '--info_json',
-        type=str,
-        default='out_path/info.json',
-        help='path to the json file containing additional info and vocab')
-    parser.add_argument(
-        '--caption_json',
-        type=str,
-        default='out_path/caption.json',
-        help='path to the processed video caption json')
 
-    parser.add_argument(
-        '--pretrain_model',
-        type=str,
-        default='out_path/model_515.pth',
-        help='path to pretrain model.')
+    # 数据文件
+    parser.add_argument('--input_json', type=str, default='../datasets/msvd/all_info.json', help='path to the json file containing msvd video info')
+    # prep_data.py 产物
+    parser.add_argument('--vid_json', type=str, default='summary_data/info.json', help='path to the json file containing msvd video info')
+    # prep_vocab.py 产物
+    parser.add_argument('--info_json', type=str, default='out_path/info.json', help='path to the json file containing additional info and vocab')
+    parser.add_argument('--caption_json', type=str, default='out_path/caption.json', help='path to the processed video caption json')
 
-    parser.add_argument(
-        '--feats_dir',
-        nargs='*',
-        type=str,
-        default=['feats/'],
-        help='path to the directory containing the preprocessed fc feats')
-
-    parser.add_argument(
-        '--conf',
-        type=str,
-        default='vsc_exp_0.yaml',
-        help='path to the yaml config file.'
-    )
-
-    parser.add_argument(
-        '--mode',
-        type=str,
-        default='pretrain',
-        help='one of [pretrain, train, test].'
-    )
-
-    parser.add_argument(
-        '--model',
-        type=str,
-        default='out_path/model.pth',
-        help='path of joint model.'
-    )
-
-    parser.add_argument(
-        "--max_len",
-        type=int,
-        default=30,
-        help='max length of captions(containing <sos>,<eos>)')
-
-    # Optimization: General
-
-    parser.add_argument(
-        '--epochs', type=int, default=1000, help='number of epochs')
-    parser.add_argument(
-        '--batch_size', type=int, default=64, help='minibatch size')
-    parser.add_argument(
-        '--grad_clip',
-        type=float,
-        default=5,  # 5.,
-        help='clip gradients at this value')
-
-    parser.add_argument(
-        '--learning_rate', type=float, default=4e-4, help='learning rate')
-
-    parser.add_argument(
-        '--learning_rate_decay_every',
-        type=int,
-        default=200,
-        help='every how many iterations thereafter to drop LR?(in epoch)')
-
+    # 配置文件，可映射至 config
+    parser.add_argument('--conf', type=str, default='vsc_exp_0.yaml', help='path to the yaml config file.')
+    parser.add_argument('--mode', type=str, default='pretrain', help='one of [pretrain, train, test].')
+    # 训练参数
+    parser.add_argument('--epochs', type=int, default=1000, help='number of epochs')
+    parser.add_argument('--batch_size', type=int, default=64, help='minibatch size')
+    parser.add_argument('--learning_rate', type=float, default=4e-4, help='learning rate')
+    parser.add_argument('--learning_rate_decay_every', type=int, default=200, help='every how many iterations thereafter to drop LR?(in epoch)')
     parser.add_argument('--learning_rate_decay_rate', type=float, default=0.8)
+    # 梯度剪裁
+    parser.add_argument('--grad_clip', type=float, default=5, help='clip gradients at this value')
+    # 优化器参数
+    parser.add_argument('--optim_alpha', type=float, default=0.9, help='alpha for adam')
+    parser.add_argument('--optim_beta', type=float, default=0.999, help='beta used for adam')
+    parser.add_argument('--optim_epsilon', type=float, default=1e-8, help='epsilon that goes into denominator for smoothing')
+    # l2 正则系数
+    parser.add_argument('--weight_decay', type=float, default=5e-4, help='weight_decay. strength of weight regularization')
+    # 设备
+    parser.add_argument('--device', type=str, default='cuda:0', help='gpu device number')
+    # 每多少个 epoch 保存一次 checkpoint
+    parser.add_argument('--save_checkpoint_every', type=int, default=5, help='how often to save a model checkpoint (in epoch)?')
+    # checkpoint 模型保存位置
+    parser.add_argument('--checkpoint_path', type=str, default='out_path', help='directory to store checkpointed models')
 
-    parser.add_argument(
-        '--optim_alpha', type=float, default=0.9, help='alpha for adam')
+    # 模型路径
+    parser.add_argument('--pretrain_model', type=str, default='out_path/model_515.pth', help='path to pretrain model.')
+    parser.add_argument('--model', type=str, default='out_path/model.pth', help='path of joint model.')
 
-    parser.add_argument(
-        '--optim_beta', type=float, default=0.999, help='beta used for adam')
-
-    parser.add_argument(
-        '--optim_epsilon',
-        type=float,
-        default=1e-8,
-        help='epsilon that goes into denominator for smoothing')
-
-    parser.add_argument(
-        '--weight_decay',
-        type=float,
-        default=5e-4,
-        help='weight_decay. strength of weight regularization')
-
-    parser.add_argument(
-        '--save_checkpoint_every',
-        type=int,
-        default=5,
-        help='how often to save a model checkpoint (in epoch)?')
-
-    parser.add_argument(
-        '--checkpoint_path',
-        type=str,
-        default='out_path',
-        help='directory to store checkpointed models')
-
-    parser.add_argument(
-        '--device', type=str, default='cuda:0', help='gpu device number')
+    # 预处理过后的 fc feats 文件？？
+    parser.add_argument('--feats_dir', nargs='*', type=str, default=['feats/'], help='path to the directory containing the preprocessed fc feats')
+    # 最大字幕长度（sos、eos 分别是句子起始、结束的标识符）
+    parser.add_argument("--max_len", type=int, default=30, help='max length of captions(containing <sos>,<eos>)')
 
     args = parser.parse_args()
     args = vars(args)

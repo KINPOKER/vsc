@@ -6,6 +6,7 @@ import spacy
 
 
 def build_vocab(vids, params):
+    # 默认为 1
     count_thr = params['word_count_threshold']
     # count up the number of words
     counts = {}
@@ -38,6 +39,7 @@ def build_vocab(vids, params):
                 '<sos>'] + [w if counts.get(w, 0) > count_thr else '<UNK>' for w in ws] + ['<eos>']
             vids[vid]['final_captions'].append(caption)
     spc = spacy.load('en')
+    # 默认为 summary_data/info.json
     with open(params['vid_json'], 'r') as f:
         vid = json.load(f)
         for i in vid['videos'].keys():
@@ -51,6 +53,7 @@ def build_vocab(vids, params):
 
 
 def main(params):
+    # 默认为 dataset/msvd/all_info.json
     videos = json.load(open(params['msrv_json'], 'r'))['sentences']
     video_caption = {}
     for i in videos:
@@ -69,10 +72,14 @@ def main(params):
     out['ix_to_word'] = itow
     out['word_to_ix'] = wtoi
     out['videos'] = {'train': [], 'validate': [], 'test': []}
+    # 默认为 dataset/msvd/all_info.json
     videos = json.load(open(params['msrv_json'], 'r'))['videos']
     for i in videos:
         out['videos'][i['split']].append(int(i['id']))
+
+    # 默认为 out_path/info.json
     json.dump(out, open(params['info_json'], 'w'), indent=4)
+    # 默认为 out_path/caption.json
     json.dump(video_caption, open(params['caption_json'], 'w'), indent=4)
 
 
