@@ -1,0 +1,11 @@
+# idea 相关文件
+/.idea
+
+# 数据集相关文件
+/datasets
+
+# prep_data.py 产物
+/VideoSumandCaption/summary_data
+
+# prep_vocab.py 产物
+/VideoSumandCaption/out_path
