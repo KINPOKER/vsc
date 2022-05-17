@@ -22,7 +22,7 @@ def build_vocab(vids, params):
     bad_count = sum(counts[w] for w in bad_words)
     print('number of bad words: %d/%d = %.2f%%' %
           (len(bad_words), len(counts), len(bad_words) * 100.0 / len(counts)))
-    print('number of words in vocab would be %d' % (len(vocab), ))
+    print('number of words in vocab would be %d' % len(vocab))
     print('number of UNKs: %d/%d = %.2f%%' %
           (bad_count, total_words, bad_count * 100.0 / total_words))
     # lets now produce the final annotations
@@ -35,10 +35,9 @@ def build_vocab(vids, params):
         vids[vid]['final_captions'] = []
         for cap in caps:
             ws = re.sub(r'[.!,;?]', ' ', cap).split()
-            caption = [
-                '<sos>'] + [w if counts.get(w, 0) > count_thr else '<UNK>' for w in ws] + ['<eos>']
+            caption = ['<sos>'] + [w if counts.get(w, 0) > count_thr else '<UNK>' for w in ws] + ['<eos>']
             vids[vid]['final_captions'].append(caption)
-    spc = spacy.load('en')
+    spc = spacy.load('en_core_web_sm')
     # 默认为 summary_data/info.json
     with open(params['vid_json'], 'r') as f:
         vid = json.load(f)
@@ -56,10 +55,13 @@ def main(params):
     # 默认为 dataset/msvd/all_info.json
     videos = json.load(open(params['msrv_json'], 'r'))['sentences']
     video_caption = {}
-    for i in videos:
-        if i['video_id'] not in video_caption.keys():
-            video_caption[i['video_id']] = {'captions': []}
-        video_caption[i['video_id']]['captions'].append(i['caption'])
+    for video in videos:
+        video_id = video['video_id']
+        if video_id not in video_caption.keys():
+            video_caption[video_id] = {'captions': []}
+        video_caption[video_id]['captions'].append(video['caption'])
+
+    print(f"video_caption: {video_caption}")
     # create the vocab
     vocab = build_vocab(video_caption, params)
     itow = {i + 2: w for i, w in enumerate(vocab)}
@@ -74,20 +76,22 @@ def main(params):
     out['videos'] = {'train': [], 'validate': [], 'test': []}
     # 默认为 dataset/msvd/all_info.json
     videos = json.load(open(params['msrv_json'], 'r'))['videos']
-    for i in videos:
-        out['videos'][i['split']].append(int(i['id']))
+    for video in videos:
+        out['videos'][video['split']].append(int(video['id']))
 
     # 默认为 out_path/info.json
-    json.dump(out, open(params['info_json'], 'w'), indent=4)
+    with open(params['info_json'], 'w') as f:
+        json.dump(out, f, indent=4)
     # 默认为 out_path/caption.json
-    json.dump(video_caption, open(params['caption_json'], 'w'), indent=4)
+    with open(params['caption_json'], 'w') as f:
+        json.dump(video_caption, f, indent=4)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     # input json
-    parser.add_argument('--msrv_json', type=str, default='dataset/msvd/all_info.json',
+    parser.add_argument('--msrv_json', type=str, default='/Users/bytedance/Downloads/train_val_test_annotation/train_val_videodatainfo.json',
                         help='msr_vtt videoinfo json')
     parser.add_argument('--vid_json', type=str, default='summary_data/info.json',
                         help='tvsum and summe videoinfo json')
